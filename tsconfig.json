@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "target": "ES2023",
+        "lib": ["ES2023"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "outDir": "dist",
+        "rootDir": ".",
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitOverride": true,
+        "verbatimModuleSyntax": true,
+        "skipLibCheck": true,
+        // Off because @modelcontextprotocol/sdk declares `onclose?: () => void`
+        // and `sessionIdGenerator: (() => string) | undefined`, neither of which
+        // type-checks under it. `strict` and `noUncheckedIndexedAccess` stay on.
+        "exactOptionalPropertyTypes": false,
+        "declaration": false,
+        "sourceMap": true,
+        "types": ["node"]
+    },
+    "include": ["src/**/*.ts", "test/**/*.ts"]
+}

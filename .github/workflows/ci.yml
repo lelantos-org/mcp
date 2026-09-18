@@ -1,0 +1,101 @@
+name: CI
+
+# One workflow, because the whole package is under two thousand lines and every
+# check below finishes in seconds. The image build is a separate job so a
+# formatting mistake fails in a quarter of a minute rather than behind a
+# container build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# `npm ci` pulls `@lelantos-org/sdk` from GitHub Packages. Without `packages:
+# read` the fallback `GITHUB_TOKEN` inherits the org's default workflow
+# permissions, which may omit it and 401.
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # Formatting and lint in one pass, without writing.
+      - name: Biome
+        run: npx biome ci .
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      # The image ships `dist`, so a build failure here is a broken image later.
+      - name: Build
+        run: npm run build
+
+  image:
+    name: Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build only. Publishing needs a registry, a tagging policy and write
+      # permission, so it is a deliberate step rather than something CI starts
+      # doing on its own: add `push: true`, a `docker/login-action` step and
+      # `packages: write` when you want one.
+      #
+      # The token reaches `npm ci` as a BuildKit secret, so it stays out of the
+      # image history — see the Dockerfile.
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: lelantos/mcp-x402:${{ github.sha }}
+          secrets: |
+            npm_token=${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Proves the entrypoint resolves and the paywall is up, which a build
+      # alone does not: a missing runtime dependency only shows on start.
+      - name: Start it and ask for /health
+        run: |
+          docker run -d --init --name mcp \
+            -e MCP_CHAIN_ID=31337 \
+            -e MCP_DEV_ACCEPT_UNVERIFIED=1 \
+            -e MCP_PAY_TO=lelantos1example \
+            -p 8402:8402 \
+            lelantos/mcp-x402:${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8402/health; then exit 0; fi
+            sleep 1
+          done
+          echo "health check never answered"; docker logs mcp; exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs mcp || true

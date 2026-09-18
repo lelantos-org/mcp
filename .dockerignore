@@ -1,0 +1,19 @@
+# Everything the build does not read. `node_modules` especially: the image
+# installs its own, and copying a host tree in would ship the wrong platform's
+# binaries — and, while `@lelantos-org/sdk` is linked to a sibling checkout, a
+# dangling symlink.
+node_modules
+dist
+
+# Secrets and per-deployment state, none of which belong in an image.
+.env
+.env.*
+!.env.example
+consumed.log
+mcp.config.json
+
+.git
+.github
+test
+*.md
+!README.md

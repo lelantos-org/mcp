@@ -1,0 +1,49 @@
+{
+    "upstreams": [
+        {
+            "name": "demo",
+            "transport": "stdio",
+            "command": "node",
+            "args": ["test/fixtures/upstream-server.mjs"],
+            "payment": "credential"
+        },
+        {
+            "name": "web",
+            "transport": "http",
+            "url": "https://example.com/mcp",
+            "headers": {
+                "authorization": "Bearer UPSTREAM_KEY_STAYS_HERE"
+            },
+            "payment": "transparent"
+        }
+    ],
+    "pricing": {
+        "default": {
+            "asset": "1",
+            "amount": "1000"
+        },
+        "tools": {
+            "demo__shout": [
+                {
+                    "asset": "1",
+                    "amount": "250"
+                },
+                {
+                    "asset": "2",
+                    "amount": "3"
+                }
+            ]
+        },
+        "free": ["demo__whoami"],
+        "fee": {
+            "bps": 250,
+            "flat": {
+                "1": "5",
+                "2": "1"
+            },
+            "minimum": {
+                "1": "10"
+            }
+        }
+    }
+}
